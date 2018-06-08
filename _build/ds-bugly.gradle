@@ -1,0 +1,19 @@
+//apply plugin: 'bugly'
+
+//bugly {
+//    def buildConfig = rootProject.extensions.getByName("ext")
+//
+//    appId = buildConfig["platformBuglyId"]
+//    appKey = buildConfig["platformBuglyAppKey"]
+//    appPackage = buildConfig["applicationId"]
+//    appVersion = buildConfig["versionName"]
+//    upload = false
+//    uploadMapping = false
+//    uploadSymbol = false
+//}
+
+dependencies {
+    def trustyDependencies = rootProject.ext.trustyDependencies
+    compile trustyDependencies.bugly
+    compile trustyDependencies.buglyNative
+}

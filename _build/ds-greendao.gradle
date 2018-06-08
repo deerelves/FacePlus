@@ -1,0 +1,6 @@
+apply plugin: 'org.greenrobot.greendao'
+
+dependencies {
+    def trustyDependencies = rootProject.ext.trustyDependencies
+    compile trustyDependencies.greendao
+}

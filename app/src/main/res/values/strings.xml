@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">FacePlus</string>
+    
+    <string name="auth_fail_format" formatted="false">鉴权失败：%s</string>
+</resources>

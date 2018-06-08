@@ -1,0 +1,19 @@
+//apply plugin: 'android-apt'   for gradle version < 2.2.0
+//apply plugin: 'android-apt'
+//apply plugin: 'com.jakewharton.butterknife'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.jakewharton:butterknife-gradle-plugin:8.4.0'
+    }
+}
+
+dependencies {
+    def trustyDependencies = rootProject.ext.trustyDependencies
+    compile trustyDependencies.butterKnife
+    annotationProcessor trustyDependencies.butterKnifeCompiler
+//    annotationProcessor trustyDependencies.butterKnifeApt
+}

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/black"
+                android:orientation="vertical">
+
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@android:color/black"
+        android:fitsSystemWindows="true"
+        android:minHeight="?attr/actionBarSize">
+
+        <RelativeLayout
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            >
+
+            <RelativeLayout
+                android:id="@+id/image_selector_directory"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                >
+
+                <TextView
+                    android:id="@+id/image_selector_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_centerVertical="true"
+                    android:ellipsize="end"
+                    android:gravity="left|center"
+                    android:maxLines="1"
+                    android:maxWidth="@dimen/size_200"
+                    android:paddingLeft="@dimen/size_20"
+                    android:paddingRight="@dimen/size_20"
+                    android:text="@string/image_selector_all"
+                    android:textColor="@android:color/white"
+                    android:textSize="@dimen/text_xlarge"
+                    />
+
+                <ImageView
+                    android:layout_width="@dimen/size_10"
+                    android:layout_height="@dimen/size_10"
+                    android:layout_alignBottom="@+id/image_selector_title"
+                    android:layout_alignRight="@+id/image_selector_title"
+                    android:layout_centerVertical="true"
+                    android:layout_marginBottom="@dimen/size_5"
+                    android:contentDescription="@null"
+                    android:src="@drawable/image_selector_title_indicator"
+                    />
+            </RelativeLayout>
+
+            <TextView
+                android:id="@+id/image_selector_btn_ok"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/size_40"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_margin="@dimen/size_10"
+                android:background="@drawable/image_selector_btn_ok"
+                android:gravity="center"
+                android:paddingLeft="@dimen/size_10"
+                android:paddingRight="@dimen/size_10"
+                android:text="@string/image_selector_done"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/text_large"
+                />
+        </RelativeLayout>
+
+    </android.support.v7.widget.Toolbar>
+
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/image_selector_images"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@+id/toolbar"
+        android:horizontalSpacing="@dimen/size_10"
+        android:numColumns="3"
+        android:scrollbars="vertical"
+        android:verticalSpacing="@dimen/size_10"/>
+
+</RelativeLayout>

@@ -1,0 +1,13 @@
+apply plugin: 'com.android.library'
+apply from: '../_build/app-config-android.gradle'
+apply from: '../_build/ds-android-support.gradle'
+apply from: '../_build/ds-test.gradle'
+
+android{
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+            aidl.srcDirs = ['src/main/java']
+        }
+    }
+}

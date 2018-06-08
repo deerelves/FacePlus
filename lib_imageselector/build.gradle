@@ -1,0 +1,14 @@
+apply plugin: 'com.android.library'
+
+apply from: '../_build/app-config-android.gradle'
+apply from: '../_build/ds-test.gradle'
+apply from: '../_build/ds-android-support.gradle'
+
+dependencies {
+    //  ImageCropper 图片截取
+    compile 'com.edmodo:cropper:1.0.1'
+    compile 'com.commit451:PhotoView:1.2.4'
+
+    def trustyDependencies = rootProject.ext.trustyDependencies
+    compile trustyDependencies.glide
+}

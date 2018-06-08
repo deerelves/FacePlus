@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+    
+    <cn.joy.face.widget.CameraFaceDetectionView2
+        android:id="@+id/cameraView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+    
+    <RelativeLayout
+        android:id="@+id/layoutLoading"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black">
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentRight="true"
+            android:layout_gravity="bottom|right"
+            android:padding="@dimen/size_20"
+            android:text="千道街智能门禁"
+            android:textColor="@android:color/white"
+            android:textSize="@dimen/text_20_0"
+            />
+        
+        <cn.joy.face.widget.ClockView
+            android:id="@+id/clockView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"/>
+        
+        <TextView
+            android:id="@+id/textDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/clockView"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="@dimen/size_30"
+            android:text="111111"
+            android:textColor="#aaffffff"
+            android:textSize="@dimen/text_20_0"
+            />
+        
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0.3"
+            android:scaleType="centerCrop"
+            android:src="@drawable/background"
+            />
+    </RelativeLayout>
+    
+    <ImageView
+        android:id="@+id/btnSetting"
+        android:layout_width="@dimen/size_40"
+        android:layout_height="@dimen/size_40"
+        android:layout_margin="@dimen/size_10"
+        android:padding="@dimen/size_5"
+        android:src="@drawable/draw_vector_setting"
+        />
+    
+    <TextView
+        android:id="@+id/textMsg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/holo_blue_dark"
+        android:gravity="center"
+        android:lineSpacingExtra="@dimen/size_20"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/text_40_0"
+        android:visibility="gone"
+        />
+
+</RelativeLayout>

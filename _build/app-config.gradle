@@ -1,0 +1,23 @@
+ext {
+    androidBuildToolsVersion = "25.0.2"
+    androidMinSdkVersion = 17
+    androidTargetSdkVersion = 22
+    androidCompileSdkVersion = 26
+
+    applicationId = "cn.joy.face"
+    versionCode = 1
+    versionName = '0.0.1'
+
+    currentVersionCode = '1'
+    guideVersionCode = '1'
+
+    keyPath = '../_build/joy.jks'
+
+
+    channelId = 'sougou'
+
+    //  第三方平台相关key
+
+//    platformUmengKey = "5b173850b27b0a66b4000066"
+//    platformUmengSecret = "128b09df730bd2f3114e86d6591a29e5"
+}

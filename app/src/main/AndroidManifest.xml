@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest package="cn.joy.face"
+          xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!--读取网络信息状态 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!--获取当前wifi状态 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!--读取手机信息权限 -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!--外存储写权限，构建语法需要用到此权限 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <!--外存储读权限，构建语法需要用到此权限 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <!-- 获取wifi状态 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    
+    <!--如需使用人脸识别，还要添加：摄相头权限，拍照需要用到 -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.camera.front.autofocus"
+        android:required="false"/>
+    
+    <application
+        android:name=".MyApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".ui.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".ui.FaceCheckActivity"
+            android:screenOrientation="portrait"
+            />
+        
+        <activity
+            android:name=".ui.FaceSettingActivity"
+            android:screenOrientation="portrait"/>
+        
+        <activity
+            android:name=".ui.FaceImageActivity"
+            android:screenOrientation="portrait"/>
+        
+        <activity android:name=".utils.image.ImagePickerActivity"/>
+    
+    </application>
+
+</manifest>

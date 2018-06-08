@@ -1,0 +1,99 @@
+apply plugin: 'com.android.application'
+
+apply from: '../_build/app-config-android.gradle'
+
+apply from: '../_build/ds-android-support.gradle'
+apply from: '../_build/ds-butter-knife.gradle'
+apply from: '../_build/ds-test.gradle'
+
+android {
+    def buildConfig = rootProject.extensions.getByName("ext")
+    // 打包时间
+    def releaseTime = new Date().format("yyyy_MM_dd", TimeZone.getTimeZone("UTC"))
+
+    signingConfigs {
+        release {
+            //加载资源
+            Properties properties = new Properties()
+            InputStream inputStream = project.rootProject.file('local.properties').newDataInputStream() ;
+            properties.load( inputStream )
+
+            storeFile file(buildConfig['keyPath'])
+            storePassword properties.getProperty("keystore_password")
+            keyAlias properties.getProperty("keystore_key_alias")
+            keyPassword properties.getProperty("keystore_key_password")
+        }
+    }
+    defaultConfig {
+        multiDexEnabled true
+        applicationId buildConfig["applicationId"]
+        versionCode buildConfig["versionCode"]
+        versionName buildConfig["versionName"]
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            //选择要添加的对应cpu类型的.so库。   // 还可以添加 'x86', 'x86_64', 'mips', 'mips64'
+            abiFilters 'armeabi'
+            abiFilters 'armeabi-v7a'
+            abiFilters 'arm64-v8a'
+        }
+
+        applicationVariants.all { variant ->
+            variant.outputs.all {
+                if (variant.buildType.name == "release")
+                    outputFileName = "APP_${variant.versionName}_${variant.versionCode.toString()}_${variant.flavorName}_${variant.buildType.name}_${releaseTime}.apk"
+            }
+        }
+    }
+    buildTypes {
+        release {
+            debuggable true
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+
+        debug {
+            debuggable true
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    repositories {
+        flatDir {
+            dirs 'libs'
+        }
+    }
+}
+
+dependencies {
+    def trustyDependencies = rootProject.ext.trustyDependencies
+    compile trustyDependencies.rxJava
+    compile trustyDependencies.rxAndroid
+    compile trustyDependencies.rxBus
+    compile trustyDependencies.fastJson
+    compile trustyDependencies.glide
+    compile trustyDependencies.glide_transform
+    compile trustyDependencies.glide_okhttp
+    compile trustyDependencies.okhttp
+    implementation 'com.android.support.constraint:constraint-layout:1.1.0'
+    //    compile 'jp.wasabeef:blurry:2.1.1'
+    // 动画
+    //    implementation 'com.github.florent37:viewanimator:1.0.5'
+    // DEX分包
+    compile 'com.android.support:multidex:1.0.2'
+
+    compile(name: 'MGLicenseManagerSDK-0.3.1', ext: 'aar')
+    compile(name: 'MGFaceppSDK-0.5.2', ext: 'aar')
+    compile project(':lib_opencv')
+    compile project(path: ':lib_imageselector')
+}
+
+// 默认不运行AndroidTest、Test
+tasks.whenTaskAdded { task ->
+    if (task.name.contains('AndroidTest') || task.name.contains('Test')) {
+        task.enabled = false
+    }
+}
