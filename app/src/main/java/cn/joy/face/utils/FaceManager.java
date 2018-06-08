@@ -17,7 +17,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -52,7 +54,7 @@ public class FaceManager {
 	private static final String TAG = "FaceManager";
 
 	// 最大可搜索失败检测次数
-	private static final int SEARCH_MAX_ERROR_TYPE = 5;
+	private static final int SEARCH_MAX_ERROR_TYPE = 3;
 
 	private static FaceManager manager;
 
@@ -65,13 +67,23 @@ public class FaceManager {
 	private SharedUtil mShared;
 
 	private Subscriber<? super Mat> mSearchSubscription;
-	private Subscription mSearchManager;
+	private List<Subscription> mSubscriptionList = new ArrayList<>();
+	private List<Call> mCurrentCall = new ArrayList<>();
 	private Mat mTempMat;
+
+	private OkHttpClient mHttpClick;
 
 	private int mCurrentSearchTime = 0;
 
+	private boolean isSearchRunning = false;
+
 	private FaceManager() {
 		mShared = new SharedUtil(AppKeeper.getInstance().getContext());
+		mHttpClick = new OkHttpClient.Builder() //
+				.connectTimeout(5, TimeUnit.SECONDS) //
+				.readTimeout(10, TimeUnit.SECONDS) //
+				.build();
+		mHttpClick.dispatcher().setMaxRequests(5);
 	}
 
 	/**
@@ -85,7 +97,7 @@ public class FaceManager {
 		Log.e(TAG, "开始创建人脸库");
 		Map<String, String> map = new HashMap<>();
 		map.put("outer_id", OUTID);
-		post("https://api-cn.faceplusplus.com/facepp/v3/faceset/create", map, FaceSetModel.class).subscribe(faceSetModel -> {
+		post("https://api-cn.faceplusplus.com/facepp/v3/faceset/create", map, FaceSetModel.class, false).subscribe(faceSetModel -> {
 			if (!TextUtils.isEmpty(faceSetModel.getToken())) {
 				mShared.setFaceSetCreate();
 				Log.e(TAG, "创建人脸库成功");
@@ -114,13 +126,13 @@ public class FaceManager {
 			map.put("image_file", s);
 			return Observable.<FaceSetModel>create(sb ->
 					// 上传图片获取token
-					post("https://api-cn.faceplusplus.com/facepp/v3/detect", map, FaceDetectModel.class) //
+					post("https://api-cn.faceplusplus.com/facepp/v3/detect", map, FaceDetectModel.class, false) //
 							.retry(5).subscribe(model -> {
 						Map<String, String> map2 = new HashMap<>();
 						map2.put("outer_id", OUTID);
 						map2.put("face_tokens", model.getFaceList().get(0).getToken());
 						// 添加token到人脸库
-						post("https://api-cn.faceplusplus.com/facepp/v3/faceset/addface", map2, FaceSetModel.class) //
+						post("https://api-cn.faceplusplus.com/facepp/v3/faceset/addface", map2, FaceSetModel.class, false) //
 								.retry(5) //
 								.subscribe(sb::onNext, sb::onError);
 					}, sb::onError)).map(fm -> {
@@ -130,13 +142,69 @@ public class FaceManager {
 					if (!file.exists()) {
 						file.mkdir();
 					}
-					copyFile(s, savePath + new File(s).getName());
+					// 拷贝到faces集合目录下并删除旧图片
+					File old = new File(s);
+					copyFile(s, savePath + old.getName());
+					// 删除文件
+					deleteFile(old);
+
 				} catch (IOException e) {
 					e.printStackTrace();
+					deleteFile(s);
 				}
 				return fm;
 			}).observeOn(AndroidSchedulers.mainThread());
 		});
+	}
+
+	public void startSearchFace() {
+		isSearchRunning = true;
+		Observable.<Mat>create(sb -> mSearchSubscription = sb).subscribeOn(Schedulers.newThread())
+				.map(m -> {
+					// 旋转mat并转换为bitmap
+					Bitmap bitmap = Bitmap.createBitmap(m.height(), m.width(), Bitmap.Config.RGB_565);
+					if (mTempMat == null) {
+						mTempMat = new Mat(m.height(), m.width(), m.type());
+					}
+					Core.rotate(m, mTempMat, Core.ROTATE_90_CLOCKWISE);
+					Utils.matToBitmap(mTempMat, bitmap);
+					return bitmap;
+				})
+				.map(bitmap -> ImageTools.compressBitmapAsFile(bitmap, AppKeeper.getInstance().getImageCachePath() + "/" + System.currentTimeMillis() + ".jpg"))
+				.subscribe(path -> {
+					Map<String, String> map = new HashMap<>();
+					map.put("outer_id", OUTID);
+					map.put("image_file", path);
+					// 开始识别
+					Subscription sb = post("https://api-cn.faceplusplus.com/facepp/v3/search", map, FaceSearchModel.class, true) //
+							//	.retry(5) //
+							.subscribe(faceSearch -> {
+								// 删除文件
+								deleteFile(path);
+								// 如果当前不在搜索状态，则不足任何操作
+								if (!isSearchRunning)
+									return;
+								Log.d(TAG, JSON.toJSONString(faceSearch));
+								// 匹配成功
+								if (faceSearch.isFaceSearched()) {
+									Log.d(TAG, "检测到人脸，匹配成功!!!");
+									RxBus.get().post(Constants.RX_TAG_FACE_SEARCH_RESULT, Boolean.TRUE);
+									mCurrentSearchTime = 0;
+									finishSearchFace();
+								} else {
+									Log.d(TAG, "检测到人脸，但未匹配!!!" + (mCurrentSearchTime + 1));
+									if (++mCurrentSearchTime > SEARCH_MAX_ERROR_TYPE) {
+										RxBus.get().post(Constants.RX_TAG_FACE_SEARCH_RESULT, Boolean.FALSE);
+										mCurrentSearchTime = 0;
+										finishSearchFace();
+									}
+								}
+							}, throwable -> {
+								Log.d(TAG, "检测到人脸，但服务器失败!!!");
+								deleteFile(path);
+							});
+					mSubscriptionList.add(sb);
+				});
 	}
 
 	/**
@@ -145,76 +213,40 @@ public class FaceManager {
 	public void searchFace(Mat mat) {
 		Log.d(TAG, "检测到人脸，开始识别---");
 		if (mSearchSubscription == null) {
-			Observable.<Mat>create(sb -> mSearchSubscription = sb).subscribeOn(Schedulers.newThread())
-					.map(m -> {
-						// 旋转mat并转换为bitmap
-						Bitmap bitmap = Bitmap.createBitmap(m.height(), m.width(), Bitmap.Config.RGB_565);
-						if (mTempMat == null) {
-							mTempMat = new Mat(m.height(), m.width(), m.type());
-						}
-						Core.rotate(m, mTempMat, Core.ROTATE_90_CLOCKWISE);
-						Utils.matToBitmap(mTempMat, bitmap);
-						return bitmap;
-					})
-					.map(bitmap -> ImageTools.compressBitmapAsFile(bitmap, AppKeeper.getInstance()
-							.getImageCachePath() + "/" + System.currentTimeMillis() + ".jpg"))
-					.subscribe(path -> {
-						Map<String, String> map = new HashMap<>();
-						map.put("outer_id", OUTID);
-						map.put("image_file", path);
-						// 开始识别
-						post("https://api-cn.faceplusplus.com/facepp/v3/search", map, FaceSearchModel.class) //
-								//	.retry(5) //
-								.subscribe(faceSearch -> {
-									Log.d(TAG, JSON.toJSONString(faceSearch));
-									// 匹配成功
-									if (faceSearch.isFaceSearched()) {
-										Log.d(TAG, "检测到人脸，匹配成功!!!");
-										RxBus.get().post(Constants.RX_TAG_FACE_SEARCH_RESULT, Boolean.TRUE);
-										mCurrentSearchTime = 0;
-										finishSearchFace();
-									} else {
-										Log.d(TAG, "检测到人脸，但未匹配!!!" + (mCurrentSearchTime + 1));
-										if (++mCurrentSearchTime > SEARCH_MAX_ERROR_TYPE) {
-											RxBus.get().post(Constants.RX_TAG_FACE_SEARCH_RESULT, Boolean.FALSE);
-											mCurrentSearchTime = 0;
-										}
-									}
-									// 删除文件
-									try {
-										new File(path).delete();
-									} catch (Exception e) {
-										e.printStackTrace();
-									}
-								}, throwable -> {
-									Log.d(TAG, "检测到人脸，但服务器失败!!!");
-									try {
-										new File(path).delete();
-									} catch (Exception e) {
-										e.printStackTrace();
-									}
-								});
-					});
+			return;
 		}
-		if (mSearchManager != null) {
-			mSearchManager.unsubscribe();
-		}
-		mSearchManager = Observable.interval(100, TimeUnit.MILLISECONDS).subscribe(aLong -> {
-			if (mSearchSubscription != null) {
-				mSearchSubscription.onNext(mat);
-				mSearchManager.unsubscribe();
-			}
-		});
+		mSearchSubscription.onNext(mat);
 	}
 
 	/**
 	 * 结束搜索
 	 */
 	public void finishSearchFace() {
+		Log.d(TAG, "关闭所有识别连接---");
+		isSearchRunning = false;
 		if (mSearchSubscription != null) {
 			mSearchSubscription.unsubscribe();
 			mSearchSubscription = null;
 		}
+		for (Subscription sb : mSubscriptionList) {
+			if (sb != null) {
+				try {
+					sb.unsubscribe();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		mSubscriptionList.clear();
+		for (Call call : mCurrentCall) {
+			try {
+				call.cancel();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		mCurrentCall.clear();
+
 	}
 
 	public String getFaceSavePath() {
@@ -237,9 +269,22 @@ public class FaceManager {
 		out.close();
 	}
 
-	private <T> Observable<T> post(String url, Map<String, String> body, Class<T> clz) {
+	private void deleteFile(String path) {
+		deleteFile(new File(path));
+	}
+
+	private void deleteFile(File file) {
+		if (file != null && file.exists()) {
+			try {
+				file.delete();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private <T> Observable<T> post(String url, Map<String, String> body, Class<T> clz, boolean addCall) {
 		return Observable.create(sb -> {
-			OkHttpClient client = new OkHttpClient();
 			RequestBody requestBody = null;
 			if (body != null && body.containsKey("image_file")) {
 				File file = new File(body.remove("image_file"));
@@ -270,7 +315,9 @@ public class FaceManager {
 			Request.Builder builder = new Request.Builder();
 			builder.url(url);
 			builder.post(requestBody);
-			client.newCall(builder.build()).enqueue(new Callback() {
+			Call call = mHttpClick.newCall(builder.build());
+			mCurrentCall.add(call);
+			call.enqueue(new Callback() {
 				@Override
 				public void onFailure(@NonNull Call call, @NonNull IOException e) {
 					sb.onError(e);

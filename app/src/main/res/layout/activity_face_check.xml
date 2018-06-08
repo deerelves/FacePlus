@@ -41,7 +41,6 @@
             android:layout_below="@+id/clockView"
             android:layout_centerHorizontal="true"
             android:layout_marginTop="@dimen/size_30"
-            android:text="111111"
             android:textColor="#aaffffff"
             android:textSize="@dimen/text_20_0"
             />

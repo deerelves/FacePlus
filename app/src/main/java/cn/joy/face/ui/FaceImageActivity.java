@@ -75,6 +75,11 @@ public class FaceImageActivity extends ParentActivity {
 		});
 	}
 
+	@OnClick(R.id.btnCancel)
+	public void onClick() {
+		finish();
+	}
+
 	class ImageAdapter extends AdapterPlus<String> {
 
 		ImageAdapter(Context context) {

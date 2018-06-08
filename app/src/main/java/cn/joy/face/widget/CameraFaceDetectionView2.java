@@ -124,8 +124,13 @@ public class CameraFaceDetectionView2 extends JavaCameraView implements CameraBr
 
 	@Override
 	public void onCameraViewStopped() {
+		if(mOnFaceDetectorListener != null){
+			mOnFaceDetectorListener.onFaceFinish();
+		}
 		mGray.release();
 		mRgba.release();
+		mRgbaTemp.release();
+		mGrayTemp.release();
 	}
 
 	@Override

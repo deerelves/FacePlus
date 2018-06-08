@@ -49,6 +49,12 @@ public class FaceCheckActivity extends ParentActivity implements OnFaceDetectorL
 
 	private static SimpleDateFormat mFormat = new SimpleDateFormat("MM月dd日  EEE", Locale.CHINA);
 
+	private static final int STATUS_STOP = -1;
+	private static final int STATUS_WAIT = 0;
+	private static final int STATUS_SEARCHING = 1;
+	private static final int STATUS_SUCCESS = 2;
+	private static final int STATUS_ERROR = 3;
+
 	@BindView(R.id.layoutLoading)
 	View mLayoutLoading;
 	@BindView(R.id.cameraView)
@@ -60,7 +66,10 @@ public class FaceCheckActivity extends ParentActivity implements OnFaceDetectorL
 	@BindView(R.id.textMsg)
 	TextView mTextMsg;
 
+	private int mStatus = STATUS_STOP;
 	private Subscription mSubscription;
+
+	private boolean isActivityRunning = false;
 
 	@Override
 	protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -73,6 +82,7 @@ public class FaceCheckActivity extends ParentActivity implements OnFaceDetectorL
 		ButterKnife.bind(this);
 
 		mCameraView.setOnFaceDetectorListener(this);
+		mCameraView.init();
 
 		FaceManager.getInstance().createFaceSet();
 		RxBus.get().register(this);
@@ -87,74 +97,112 @@ public class FaceCheckActivity extends ParentActivity implements OnFaceDetectorL
 	@Override
 	protected void onResume() {
 		super.onResume();
-		mCameraView.init();
-		mCameraView.enableView();
-		mClockView.performAnimation();
-		mTextDate.setText(mFormat.format(new Date(System.currentTimeMillis())));
+		isActivityRunning = true;
+		onStatusChanged(STATUS_WAIT);
 	}
 
 	@Override
 	protected void onPause() {
 		super.onPause();
-		mClockView.cancelAnimation();
+		isActivityRunning = false;
+		onStatusChanged(STATUS_STOP);
 	}
 
 	@Override
 	public void onFace(Mat mat, Rect rect) {
+		runOnUiThread(() -> onStatusChanged(STATUS_SEARCHING));
+		// 状态改变
 		if (mSubscription != null) {
 			mSubscription.unsubscribe();
 		}
-		// 隐藏Loading页面
-		runOnUiThread(() -> {
-			if (mLayoutLoading.getVisibility() != View.GONE) {
-				mLayoutLoading.setVisibility(View.GONE);
-			}
-		});
-		// 三秒后重新显示Loading页面
-		mSubscription = Observable.timer(3, TimeUnit.SECONDS).subscribeOn(Schedulers.newThread()).observeOn(AndroidSchedulers.mainThread()).subscribe(aLong -> {
-			mLayoutLoading.setVisibility(View.VISIBLE);
-		});
+		// 如果三秒内没有再次获取到人脸信息，改变状态为等待状态
+		mSubscription = Observable.timer(2, TimeUnit.SECONDS)
+				.subscribeOn(Schedulers.newThread())
+				.observeOn(AndroidSchedulers.mainThread())
+				.subscribe(aLong -> onStatusChanged(STATUS_WAIT));
 		FaceManager.getInstance().searchFace(mat);
 	}
 
 	@Override
 	public void onFaceFinish() {
+		// 状态改变
+		if (mSubscription != null) {
+			mSubscription.unsubscribe();
+		}
 		FaceManager.getInstance().finishSearchFace();
 	}
 
 	@Subscribe(tags = {@Tag(Constants.RX_TAG_FACE_SEARCH_RESULT)}, thread = EventThread.MAIN_THREAD)
 	public void onSearchFaceSuccess(Boolean success) {
-		mCameraView.disableView();
-		Observable.timer(5, TimeUnit.SECONDS) //
-				.subscribeOn(Schedulers.newThread()) //
-				.observeOn(AndroidSchedulers.mainThread()) //
-				.subscribe(aLong -> {
-				}, Throwable::printStackTrace, () -> {
-					// 显示Loading页面
-					if (mLayoutLoading.getVisibility() != View.VISIBLE) {
-						mLayoutLoading.setVisibility(View.VISIBLE);
+		// 如果当前状态为搜索状态，才能改变为结果状态
+		if (mStatus == STATUS_SEARCHING)
+			onStatusChanged(success ? STATUS_SUCCESS : STATUS_ERROR);
+	}
+
+	private void onStatusChanged(int status) {
+		onStatusChanged(status, false);
+	}
+
+	/**
+	 * 当前状态已经发生改变
+	 */
+	private void onStatusChanged(int status, boolean force) {
+		// 如果当前状态与新状态相同或当前状态为搜索结果状态之后 UI不做改变
+		if (!force && (mStatus == status || mStatus > STATUS_SEARCHING))
+			return;
+		Log.d(TAG, "状态改变 --" + status);
+		mStatus = status;
+		switch (mStatus) {
+			case STATUS_STOP:
+				mTextMsg.setVisibility(View.GONE);
+				mLayoutLoading.setVisibility(View.VISIBLE);
+				mClockView.cancelAnimation();
+				mCameraView.disableView();
+				break;
+			case STATUS_WAIT:
+				mTextMsg.setVisibility(View.GONE);
+				mLayoutLoading.setVisibility(View.VISIBLE);
+				mClockView.performAnimation();
+				mTextDate.setText(mFormat.format(new Date(System.currentTimeMillis())));
+				mCameraView.enableView();
+				break;
+			case STATUS_SEARCHING:
+				mTextMsg.setVisibility(View.GONE);
+				mLayoutLoading.setVisibility(View.GONE);
+				mClockView.cancelAnimation();
+				FaceManager.getInstance().startSearchFace();
+				break;
+			case STATUS_SUCCESS:
+			case STATUS_ERROR:
+				boolean success = mStatus == STATUS_SUCCESS;
+				mTextMsg.setVisibility(View.VISIBLE);
+				mLayoutLoading.setVisibility(View.GONE);
+				mTextMsg.setText(success ? "欢迎回家\n已为您开门" : "非常抱歉\n未能查到您的信息");
+
+				MediaPlayer mediaPlayer = MediaPlayer.create(getContext(), success ? R.raw.media_welcome : R.raw.media_error);
+				mediaPlayer.setOnCompletionListener(mp -> {
+					if (mp != null) {
+						mp.stop();
+						mp.release();
 					}
-					mTextMsg.setVisibility(View.GONE);
-					mCameraView.enableView();
-					Log.d(TAG, "重新开始工作！");
 				});
-		// UI改变
-		mTextMsg.setVisibility(View.VISIBLE);
-		MediaPlayer mediaPlayer;
-		if (success) {
-			mTextMsg.setText("欢迎回家\n已为您开门");
-			mediaPlayer = MediaPlayer.create(getContext(), R.raw.media_welcome);
-		} else {
-			mTextMsg.setText("非常抱歉\n未能查到您的信息");
-			mediaPlayer = MediaPlayer.create(getContext(), R.raw.media_error);
+				mediaPlayer.start();
+				// 暂停10s后重新开始工作
+				Observable.timer(10, TimeUnit.SECONDS) //
+						.subscribeOn(Schedulers.newThread()) //
+						.observeOn(AndroidSchedulers.mainThread()) //
+						.subscribe(aLong -> {
+						}, Throwable::printStackTrace, () -> {
+							// 改变状态为等待状态
+							if (isActivityRunning) {
+								onStatusChanged(STATUS_WAIT, true);
+								Log.d(TAG, "重新开始工作！");
+							}
+						});
+
+				mCameraView.disableView();
+				break;
 		}
-		mediaPlayer.setOnCompletionListener(mp -> {
-			if(mp != null){
-				mp.stop();
-				mp.release();
-			}
-		});
-		mediaPlayer.start();
 	}
 
 	@OnClick(R.id.btnSetting)
